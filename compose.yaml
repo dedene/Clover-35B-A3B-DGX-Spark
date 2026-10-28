@@ -1,0 +1,64 @@
+# Clover-35B-A3B-Preview (block-diffusion MoE, BF16) on one DGX Spark: `docker compose up -d --wait` builds SGLang
+# with the Clover PR, downloads the pinned checkpoint and returns once the OpenAI-compatible API on :8888 answers.
+# Settings: see .env.example.
+name: clover
+
+x-image: &image ${CLOVER_IMAGE:-clover-sglang:058939af}
+
+services:
+  # One-shot: fetch the checkpoint into MODEL_DIR. Resumable, and a no-op once the revision stamp matches.
+  download:
+    image: *image
+    entrypoint: ["bash", "/download.sh"]
+    environment:
+      MODEL_ID: ${MODEL_ID:-Diffuspace/Clover-35B-A3B-Preview}
+      MODEL_REVISION: ${MODEL_REVISION:-4b0402b65e523d0183a14c431955438714cb16ff}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    volumes:
+      - ./tools/download.sh:/download.sh:ro
+      - ${MODEL_DIR:-~/.cache/clover}:/models
+    healthcheck:
+      disable: true
+
+  clover:
+    image: *image
+    build:
+      context: .
+      args:
+        SGLANG_COMMIT: ${SGLANG_COMMIT:-058939af24d5cdc44bb4b8852d0ddfab555ed71e}
+    entrypoint: ["bash", "/serve.sh"]
+    container_name: clover
+    depends_on:
+      download:
+        condition: service_completed_successfully
+    gpus: all
+    network_mode: host
+    ipc: host
+    shm_size: 16g
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    environment:
+      SERVED_NAME: ${SERVED_NAME:-clover}
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-8888}
+      CONTEXT: ${CONTEXT:-131072}
+      PARALLEL: ${PARALLEL:-4}
+      MEM_FRACTION: ${MEM_FRACTION:-0.75}
+      DRAFT_TOKENS: ${DRAFT_TOKENS:-16}
+      ACCEPT_RULE: ${ACCEPT_RULE:-threshold}
+      CUDA_GRAPH_BS: ${CUDA_GRAPH_BS:-1 2 4}
+      API_KEY: ${API_KEY:-}
+    volumes:
+      - ./tools/serve.sh:/serve.sh:ro
+      - ${MODEL_DIR:-~/.cache/clover}:/models:ro
+      # Triton and FlashInfer JIT caches, so a restart skips the compiles.
+      - ${MODEL_DIR:-~/.cache/clover}/.jit-cache:/root/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:${PORT:-8888}/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20m
+      start_interval: 10s
