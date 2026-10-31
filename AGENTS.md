@@ -21,7 +21,7 @@ DGX Spark with SGLang via Docker Compose. Proof of concept: SGLang support is an
 - `docker compose config --quiet`, `shellcheck tools/*.sh`, `python3 -m py_compile tools/*.py`
 - `docker compose up -d --wait`, then `tools/check.py` (all ok).
 - Kernel numerics on the GB10: the PR's own GPU tests, inside the image:
-  `docker run --rm --gpus all --ipc host --entrypoint bash clover-sglang:058939af -c "cd /sgl-workspace/sglang &&
+  `docker run --rm --gpus all --ipc host --entrypoint bash clover-sglang:058939af-r2 -c "cd /sgl-workspace/sglang &&
   python3 -m pytest -q test/registered/kernels/ops/attention/test_clover_gdn.py
   test/registered/kernels/ops/mamba/test_clover_conv.py test/registered/kernels/ops/mamba/test_clover_verify_conv.py
   test/registered/kernels/ops/moe/test_clover_coreset.py test/registered/kernels/ops/sampling/test_clover_penalty.py"`
@@ -59,5 +59,16 @@ DGX Spark with SGLang via Docker Compose. Proof of concept: SGLang support is an
   only pay off on code. Default 16 (best mean). Different widths give different greedy text: the threshold rule
   is not lossless.
 - Startup sets `max_running_requests` to 3 at width 32 and 4 at 16 (mamba state slots).
+- Inspect sends `"strict": true` on every tool; SGLang makes that a structural-tag constraint in auto mode and
+  Clover rejects it (400). The Dockerfile ignores strict in auto mode.
+- Thinking off, Clover often answers BFCL-style requests in prose instead of calling the tool (smoke: simple 1/5,
+  parallel 0/5). Same with `ACCEPT_RULE=exact`, so it is the model, not the lossy acceptance. Thinking on, the
+  same request gets the right call.
+- Benchmark 2026-10-28 (kit runs `clover-35b-a3b-bf16`, `clover-35b-a3b-bf16-think`, report `report-clover/`).
+  Thinking off: BFCL single 25.4, multi-turn 43.5, AgentDojo 75.0 / under attack 70.5 / resisted 80.0, IFEval
+  79.3, Dutch 80.3, GPQA 61.1, agentic score 60.6. Thinking on (32,768 tokens): BFCL single 89.6 (irrelevance
+  88), multi-turn 61.5, AgentDojo 86.5 / 75.0 / 75.5, GPQA 78.3 (DiffuSpace: 83.8). Done cleanly 61% both.
+  Agent loop 48.5 / 22.9 steps per minute; prefill 4,828 tok/s at 40K; 4 streams 104 tok/s.
+- GPQA thinking on took 5 h (22:45-03:57) for 198 questions at 4 requests; BFCL multi-turn thinking on 1.5 h.
 - Over ssh, a heredoc that runs `ssh` without `-n` feeds the rest of the script to the remote shell; later local
   commands silently never run.

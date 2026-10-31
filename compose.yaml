@@ -3,7 +3,7 @@
 # Settings: see .env.example.
 name: clover
 
-x-image: &image ${CLOVER_IMAGE:-clover-sglang:058939af}
+x-image: &image ${CLOVER_IMAGE:-clover-sglang:058939af-r2}
 
 services:
   # One-shot: fetch the checkpoint into MODEL_DIR. Resumable, and a no-op once the revision stamp matches.
