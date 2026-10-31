@@ -61,6 +61,8 @@ DGX Spark with SGLang via Docker Compose. Proof of concept: SGLang support is an
 - Startup sets `max_running_requests` to 3 at width 32 and 4 at 16 (mamba state slots).
 - Inspect sends `"strict": true` on every tool; SGLang makes that a structural-tag constraint in auto mode and
   Clover rejects it (400). The Dockerfile ignores strict in auto mode.
+- Bump the image tag (`-r2`, `-r3`, ...) with every Dockerfile change: `up` reuses an existing tag and silently keeps
+  the old build.
 - Thinking off, Clover often answers BFCL-style requests in prose instead of calling the tool (smoke: simple 1/5,
   parallel 0/5). Same with `ACCEPT_RULE=exact`, so it is the model, not the lossy acceptance. Thinking on, the
   same request gets the right call.
